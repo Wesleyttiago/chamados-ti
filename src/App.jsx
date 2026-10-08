@@ -27,12 +27,6 @@ const fullDate = (value) =>
     dateStyle: "short",
     timeStyle: "short",
   }).format(new Date(value));
-const initials = (name) =>
-  name
-    .split(" ")
-    .map((p) => p[0])
-    .slice(0, 2)
-    .join("");
 
 function Badge({ type, value }) {
   const labels = type === "status" ? STATUSES : PRIORITIES;
@@ -383,7 +377,7 @@ function Report({ tickets, onExport }) {
   return (
     <div className="report">
       <p className="form-intro">
-        Um retrato dos {summary.total} chamados cadastrados agora.
+        Resumo dos {summary.total} chamados cadastrados.
       </p>
       <div className="report-numbers">
         <div>
@@ -441,6 +435,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState("");
   const [toast, setToast] = useState(null);
+  const [focusedTicketId, setFocusedTicketId] = useState(null);
   const summary = useMemo(() => summarize(tickets), [tickets]);
   const visible = useMemo(
     () => filterTickets(tickets, filters),
@@ -480,6 +475,7 @@ export default function App() {
   function openModal(value) {
     setActionError("");
     setModal(value);
+    if (value.type === "detail") setFocusedTicketId(value.id);
   }
   function closeModal() {
     if (!busy) {
@@ -488,6 +484,7 @@ export default function App() {
     }
   }
   function applyTicket(ticket) {
+    setFocusedTicketId(ticket.id);
     setTickets((all) =>
       all.some((t) => t.id === ticket.id)
         ? all.map((t) => (t.id === ticket.id ? ticket : t))
@@ -531,6 +528,13 @@ export default function App() {
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .slice(0, 3);
 
+  const focusedTicket =
+    visible.find((t) => t.id === focusedTicketId) ||
+    filterTickets(
+      visible.filter((t) => t.status !== "resolvido"),
+      { sort: "priority" },
+    )[0] ||
+    visible[0];
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main">
@@ -539,19 +543,16 @@ export default function App() {
       <aside className="sidebar">
         <a className="brand" href="./" aria-label="Chamados TI, início">
           <span className="brand-mark">
-            <Icon name="headset" size={25} />
+            ti<span>.</span>
           </span>
-          <span>
-            chamados<span className="brand-ti">TI</span>
+          <span className="brand-name">
+            CHAMADOS<small>SUPORTE TÉCNICO</small>
           </span>
         </a>
         <div className="workspace">
-          <span className="workspace-icon">S</span>
-          <div>
-            <strong>Central de suporte</strong>
-            <span>Seu espaço de trabalho</span>
-          </div>
-          <span className="workspace-dot" />
+          <span className="workspace-code">01 / CENTRAL</span>
+          <strong>Estação de trabalho</strong>
+          <span className="workspace-name">Gestão de atendimento</span>
         </div>
         <nav aria-label="Menu principal">
           <p className="nav-label">PRINCIPAL</p>
@@ -597,18 +598,14 @@ export default function App() {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <div className="study-card">
-            <span className="study-symbol">
-              <Icon name="bolt" size={20} />
-            </span>
-            <strong>Da solicitação à solução.</strong>
-            <p>Um passo de cada vez para um suporte mais organizado.</p>
+          <div className="sidebar-project">
+            <span className="nav-label">PROJETO DE ESTUDO</span>
             <a
               href="https://github.com/Wesleyttiago/chamados-ti"
               target="_blank"
               rel="noreferrer"
             >
-              Explorar o projeto
+              Código-fonte
               <Icon name="arrowUp" size={16} />
             </a>
           </div>
@@ -618,19 +615,19 @@ export default function App() {
             target="_blank"
             rel="noreferrer"
           >
-            <span className="avatar author-avatar">WT</span>
+            <span className="author-mark">WT</span>
             <span>
               <strong>Wesley Tiago</strong>
-              <small>Projeto de estudo · ADS</small>
+              <small>Portfólio pessoal</small>
             </span>
-            <Icon name="external" size={16} />
+            <Icon name="arrowUp" size={16} />
           </a>
         </div>
       </aside>
       <div className="main-shell">
         <header className="topbar">
           <div className="breadcrumb">
-            Workspace<span>/</span>
+            Central de suporte<span>/</span>
             <strong>{view === "overview" ? "Visão geral" : "Chamados"}</strong>
           </div>
           <div className="topbar-right">
@@ -638,19 +635,30 @@ export default function App() {
               <span />
               {isDemo ? "Demonstração" : "API local"}
             </span>
-            <span className="avatar header-avatar">TI</span>
+            <span className="topbar-code">TI / 01</span>
           </div>
         </header>
         <main id="main" tabIndex={-1}>
           <div className="page-heading">
             <div>
-              <p className="eyebrow">CENTRAL DE SUPORTE</p>
+              <p className="eyebrow">
+                <span className="section-tick" />
+                PAINEL DE ATENDIMENTO
+              </p>
               <h1>
                 {view === "overview"
-                  ? "Seu suporte, em dia."
-                  : "Cada chamado tem seu lugar."}
+                  ? "Central de chamados."
+                  : "Fila de atendimento."}
               </h1>
-              <p>Acompanhe a fila, organize prioridades e registre soluções.</p>
+              <p>Solicitações, andamento e soluções em um só lugar.</p>
+            </div>
+            <div className="heading-total">
+              <strong>{String(summary.total).padStart(2, "0")}</strong>
+              <span>
+                CHAMADOS
+                <br />
+                REGISTRADOS
+              </span>
             </div>
             <button
               className="button primary new-ticket"
@@ -662,7 +670,7 @@ export default function App() {
             </button>
           </div>
           <div className="demo-note">
-            <Icon name="inbox" size={17} />
+            <span className="demo-symbol">i</span>
             <p>
               {isDemo ? (
                 <>
@@ -697,25 +705,15 @@ export default function App() {
                   aria-label="Resumo dos chamados"
                 >
                   {[
-                    ["aberto", "Em aberto", "Aguardando atendimento", "inbox"],
+                    ["aberto", "Em aberto", "Aguardando início", "01"],
                     [
                       "em_andamento",
                       "Em atendimento",
-                      "Trabalho em andamento",
-                      "clock",
+                      "Atendimentos iniciados",
+                      "02",
                     ],
-                    [
-                      "resolvido",
-                      "Resolvidos",
-                      "Soluções registradas",
-                      "checkCircle",
-                    ],
-                    [
-                      "alta",
-                      "Alta prioridade",
-                      "Pendências que pedem atenção",
-                      "bolt",
-                    ],
+                    ["resolvido", "Resolvidos", "Soluções registradas", "03"],
+                    ["alta", "Alta prioridade", "Chamados pendentes", "04"],
                   ].map(([key, title, subtitle, icon]) => (
                     <button
                       key={key}
@@ -734,9 +732,7 @@ export default function App() {
                     >
                       <div className="stat-top">
                         <span>{title}</span>
-                        <span className="stat-icon">
-                          <Icon name={icon} size={19} />
-                        </span>
+                        <span className="metric-index">/{icon}</span>
                       </div>
                       <strong>{String(summary[key]).padStart(2, "0")}</strong>
                       <p>{subtitle}</p>
@@ -745,333 +741,386 @@ export default function App() {
                   ))}
                 </section>
               )}
-              <section
-                className="ticket-panel"
-                aria-labelledby="ticket-panel-title"
+              <div
+                className={
+                  view === "overview" ? "desk-layout" : "desk-layout queue-only"
+                }
               >
-                <div className="panel-heading">
-                  <div>
-                    <h2 id="ticket-panel-title">
-                      {view === "overview"
-                        ? "A fila de chamados"
-                        : filters.pending
-                          ? "Alta prioridade pendente"
-                          : filters.status
-                            ? STATUSES[filters.status]
-                            : "Todos os chamados"}
-                      <span className="count-badge">{tickets.length}</span>
-                    </h2>
-                    <p>Encontre um chamado e acompanhe o atendimento.</p>
-                  </div>
-                  <button
-                    className="button secondary export-button"
-                    onClick={() => exportCsv(visible)}
-                    disabled={!visible.length}
-                  >
-                    <Icon name="download" size={17} />
-                    Exportar CSV
-                  </button>
-                </div>
-                <div className="filter-toolbar">
-                  <label className="search-field">
-                    <Icon name="search" size={19} />
-                    <input
-                      aria-label="Buscar chamados"
-                      value={filters.query}
-                      onChange={(e) =>
-                        setFilters({ ...filters, query: e.target.value })
-                      }
-                      placeholder="Buscar por título, pessoa ou ID…"
-                    />
-                  </label>
-                  <select
-                    aria-label="Filtrar por status"
-                    value={filters.status}
-                    onChange={(e) =>
-                      setFilters({
-                        ...filters,
-                        status: e.target.value,
-                        pending: false,
-                      })
-                    }
-                  >
-                    <option value="">Todos os status</option>
-                    {Object.entries(STATUSES).map(([k, v]) => (
-                      <option key={k} value={k}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    aria-label="Filtrar por prioridade"
-                    value={filters.priority}
-                    onChange={(e) =>
-                      setFilters({
-                        ...filters,
-                        priority: e.target.value,
-                        pending: false,
-                      })
-                    }
-                  >
-                    <option value="">Prioridades</option>
-                    {Object.entries(PRIORITIES).map(([k, v]) => (
-                      <option key={k} value={k}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    aria-label="Filtrar por categoria"
-                    value={filters.category}
-                    onChange={(e) =>
-                      setFilters({ ...filters, category: e.target.value })
-                    }
-                  >
-                    <option value="">Categorias</option>
-                    {Object.entries(CATEGORIES).map(([k, v]) => (
-                      <option key={k} value={k}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th scope="col">CHAMADO</th>
-                        <th scope="col">SOLICITANTE</th>
-                        <th scope="col">PRIORIDADE</th>
-                        <th scope="col">STATUS</th>
-                        <th scope="col" className="updated-column">
-                          ATUALIZADO
-                        </th>
-                        <th scope="col">
-                          <span className="sr-only">Abrir</span>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {visible.map((ticket) => (
-                        <tr key={ticket.id}>
-                          <td className="ticket-cell">
-                            <span className="ticket-number">
-                              TI-{ticket.id}
-                            </span>
-                            <button
-                              className="ticket-title"
-                              onClick={() =>
-                                openModal({ type: "detail", id: ticket.id })
-                              }
-                            >
-                              {ticket.title}
-                            </button>
-                            <span className="ticket-category">
-                              {CATEGORIES[ticket.category]}
-                              <span>·</span>
-                              {ticket.department}
-                            </span>
-                          </td>
-                          <td className="requester-cell">
-                            <span className={`avatar avatar-${ticket.id % 4}`}>
-                              {initials(ticket.requester)}
-                            </span>
-                            <span>{ticket.requester}</span>
-                          </td>
-                          <td>
-                            <Badge type="priority" value={ticket.priority} />
-                          </td>
-                          <td>
-                            <Badge type="status" value={ticket.status} />
-                          </td>
-                          <td className="updated-column">
-                            <time
-                              dateTime={ticket.updatedAt}
-                              title={fullDate(ticket.updatedAt)}
-                            >
-                              {shortDate(ticket.updatedAt)}
-                            </time>
-                          </td>
-                          <td className="row-action">
-                            <button
-                              className="icon-button"
-                              aria-label={`Abrir chamado TI-${ticket.id}`}
-                              onClick={() =>
-                                openModal({ type: "detail", id: ticket.id })
-                              }
-                            >
-                              <Icon name="arrow" size={18} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {!visible.length && (
-                  <div className="empty-state">
-                    <span>
-                      <Icon name="search" size={30} />
-                    </span>
-                    <h3>
-                      {tickets.length
-                        ? "Nenhum chamado encontrado"
-                        : "A fila está vazia"}
-                    </h3>
-                    <p>
-                      {tickets.length
-                        ? "Tente outro termo ou remova os filtros."
-                        : "Abra um novo chamado para começar."}
-                    </p>
+                <section
+                  className="ticket-panel"
+                  aria-labelledby="ticket-panel-title"
+                >
+                  <div className="panel-heading">
+                    <div>
+                      <h2 id="ticket-panel-title">
+                        {view === "overview"
+                          ? "Fila de atendimento"
+                          : filters.pending
+                            ? "Alta prioridade pendente"
+                            : filters.status
+                              ? STATUSES[filters.status]
+                              : "Todos os chamados"}
+                        <span className="count-badge">{tickets.length}</span>
+                      </h2>
+                      <p>Selecione um chamado para consultar o histórico.</p>
+                    </div>
                     <button
-                      className="button secondary"
-                      onClick={() =>
-                        tickets.length
-                          ? setFilters(emptyFilters)
-                          : openModal({ type: "form" })
-                      }
+                      className="button secondary export-button"
+                      onClick={() => exportCsv(visible)}
+                      disabled={!visible.length}
                     >
-                      {tickets.length
-                        ? "Limpar filtros"
-                        : "Criar primeiro chamado"}
+                      <Icon name="download" size={17} />
+                      Exportar CSV
                     </button>
                   </div>
-                )}
-                <div className="table-footer">
-                  <span aria-live="polite">
-                    {visible.length} de {tickets.length} chamados
-                    {hasFilters ? (
-                      <button
-                        onClick={() => setFilters(emptyFilters)}
-                        className="clear-filters"
-                      >
-                        Limpar filtros
-                      </button>
-                    ) : null}
-                  </span>
-                  <label>
-                    Ordenar por
+                  <div className="filter-toolbar">
+                    <label className="search-field">
+                      <Icon name="search" size={19} />
+                      <input
+                        aria-label="Buscar chamados"
+                        value={filters.query}
+                        onChange={(e) =>
+                          setFilters({ ...filters, query: e.target.value })
+                        }
+                        placeholder="Buscar por título, pessoa ou ID…"
+                      />
+                    </label>
                     <select
-                      aria-label="Ordenar chamados"
-                      value={filters.sort}
+                      aria-label="Filtrar por status"
+                      value={filters.status}
                       onChange={(e) =>
-                        setFilters({ ...filters, sort: e.target.value })
+                        setFilters({
+                          ...filters,
+                          status: e.target.value,
+                          pending: false,
+                        })
                       }
                     >
-                      <option value="recent">Mais recentes</option>
-                      <option value="priority">Prioridade</option>
+                      <option value="">Todos os status</option>
+                      {Object.entries(STATUSES).map(([k, v]) => (
+                        <option key={k} value={k}>
+                          {v}
+                        </option>
+                      ))}
                     </select>
-                  </label>
-                </div>
-              </section>
-              {view === "overview" && (
-                <div className="bottom-grid">
-                  <section
-                    className="activity-panel"
-                    aria-labelledby="activity-title"
-                  >
-                    <div className="small-panel-heading">
-                      <h2 id="activity-title">Últimas movimentações</h2>
-                      <span className="live-dot">Ao vivo</span>
-                    </div>
-                    {recentEvents.length ? (
-                      <ul className="activity-list">
-                        {recentEvents.map((e) => (
-                          <li key={e.id}>
-                            <span className={`activity-icon event-${e.kind}`}>
-                              <Icon
-                                name={
-                                  e.kind === "comment" ? "message" : "ticket"
-                                }
-                                size={16}
-                              />
-                            </span>
-                            <div>
+                    <select
+                      aria-label="Filtrar por prioridade"
+                      value={filters.priority}
+                      onChange={(e) =>
+                        setFilters({
+                          ...filters,
+                          priority: e.target.value,
+                          pending: false,
+                        })
+                      }
+                    >
+                      <option value="">Prioridades</option>
+                      {Object.entries(PRIORITIES).map(([k, v]) => (
+                        <option key={k} value={k}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      aria-label="Filtrar por categoria"
+                      value={filters.category}
+                      onChange={(e) =>
+                        setFilters({ ...filters, category: e.target.value })
+                      }
+                    >
+                      <option value="">Categorias</option>
+                      {Object.entries(CATEGORIES).map(([k, v]) => (
+                        <option key={k} value={k}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th scope="col">CHAMADO</th>
+                          <th scope="col">SOLICITANTE</th>
+                          <th scope="col">PRIORIDADE</th>
+                          <th scope="col">STATUS</th>
+                          <th scope="col" className="updated-column">
+                            ATUALIZADO
+                          </th>
+                          <th scope="col">
+                            <span className="sr-only">Abrir</span>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {visible.map((ticket) => (
+                          <tr
+                            key={ticket.id}
+                            className={
+                              focusedTicket?.id === ticket.id
+                                ? "focused-row"
+                                : ""
+                            }
+                          >
+                            <td className="ticket-cell">
+                              <span className="ticket-number">
+                                TI-{ticket.id}
+                              </span>
                               <button
+                                className="ticket-title"
+                                onFocus={() => setFocusedTicketId(ticket.id)}
                                 onClick={() =>
-                                  openModal({ type: "detail", id: e.ticket.id })
+                                  openModal({ type: "detail", id: ticket.id })
                                 }
                               >
-                                TI-{e.ticket.id}
-                                <span>{e.ticket.title}</span>
+                                {ticket.title}
                               </button>
-                              <p>
-                                {e.kind === "create"
-                                  ? "Novo chamado na fila"
-                                  : e.kind === "comment"
-                                    ? "Atualização adicionada ao histórico"
-                                    : e.kind === "edit"
-                                      ? "Dados do chamado atualizados"
-                                      : "Status do atendimento atualizado"}
-                              </p>
-                            </div>
-                            <time dateTime={e.createdAt}>
-                              {shortDate(e.createdAt)}
-                            </time>
-                          </li>
+                              <span className="ticket-category">
+                                {CATEGORIES[ticket.category]}
+                                <span>·</span>
+                                {ticket.department}
+                              </span>
+                            </td>
+                            <td className="requester-cell">
+                              <span>{ticket.requester}</span>
+                            </td>
+                            <td>
+                              <Badge type="priority" value={ticket.priority} />
+                            </td>
+                            <td>
+                              <Badge type="status" value={ticket.status} />
+                            </td>
+                            <td className="updated-column">
+                              <time
+                                dateTime={ticket.updatedAt}
+                                title={fullDate(ticket.updatedAt)}
+                              >
+                                {shortDate(ticket.updatedAt)}
+                              </time>
+                            </td>
+                            <td className="row-action">
+                              <button
+                                className="icon-button"
+                                aria-label={`Abrir chamado TI-${ticket.id}`}
+                                onClick={() =>
+                                  openModal({ type: "detail", id: ticket.id })
+                                }
+                              >
+                                <Icon name="arrow" size={18} />
+                              </button>
+                            </td>
+                          </tr>
                         ))}
-                      </ul>
-                    ) : (
-                      <p className="quiet">
-                        As movimentações aparecem aqui conforme você usa o
-                        sistema.
-                      </p>
-                    )}
-                  </section>
-                  <section className="progress-panel">
-                    <span className="progress-label">
-                      <Icon name="checkCircle" size={18} />
-                      DO CHAMADO À SOLUÇÃO
-                    </span>
-                    <div className="progress-total">
-                      <strong>
-                        {summary.total
-                          ? Math.round(
-                              (summary.resolvido / summary.total) * 100,
-                            )
-                          : 0}
-                        <span>%</span>
-                      </strong>
+                      </tbody>
+                    </table>
+                  </div>
+                  {!visible.length && (
+                    <div className="empty-state">
                       <span>
-                        dos chamados
-                        <br />
-                        resolvidos
+                        <Icon name="search" size={30} />
                       </span>
-                      <div
-                        className="progress-ring"
-                        style={{
-                          "--progress": `${summary.total ? (summary.resolvido / summary.total) * 100 : 0}%`,
-                        }}
-                        aria-hidden="true"
+                      <h3>
+                        {tickets.length
+                          ? "Nenhum chamado encontrado"
+                          : "A fila está vazia"}
+                      </h3>
+                      <p>
+                        {tickets.length
+                          ? "Tente outro termo ou remova os filtros."
+                          : "Abra um novo chamado para começar."}
+                      </p>
+                      <button
+                        className="button secondary"
+                        onClick={() =>
+                          tickets.length
+                            ? setFilters(emptyFilters)
+                            : openModal({ type: "form" })
+                        }
                       >
-                        <Icon name="check" size={22} />
+                        {tickets.length
+                          ? "Limpar filtros"
+                          : "Criar primeiro chamado"}
+                      </button>
+                    </div>
+                  )}
+                  <div className="table-footer">
+                    <span aria-live="polite">
+                      {visible.length} de {tickets.length} chamados
+                      {hasFilters ? (
+                        <button
+                          onClick={() => setFilters(emptyFilters)}
+                          className="clear-filters"
+                        >
+                          Limpar filtros
+                        </button>
+                      ) : null}
+                    </span>
+                    <label>
+                      Ordenar por
+                      <select
+                        aria-label="Ordenar chamados"
+                        value={filters.sort}
+                        onChange={(e) =>
+                          setFilters({ ...filters, sort: e.target.value })
+                        }
+                      >
+                        <option value="recent">Mais recentes</option>
+                        <option value="priority">Prioridade</option>
+                      </select>
+                    </label>
+                  </div>
+                </section>
+                {view === "overview" && (
+                  <aside
+                    className="context-sidebar"
+                    aria-label="Resumo do atendimento"
+                  >
+                    <section
+                      className="focus-panel"
+                      aria-labelledby="focus-title"
+                    >
+                      <div className="focus-heading">
+                        <span className="section-tick" />
+                        <h2 id="focus-title">Atendimento em foco</h2>
+                        <Icon name="arrowUp" size={16} />
                       </div>
-                    </div>
-                    <div className="progress-track">
-                      <span
-                        style={{
-                          width: `${summary.total ? (summary.resolvido / summary.total) * 100 : 0}%`,
-                        }}
-                      />
-                    </div>
-                    <p>
-                      {summary.resolvido} resolvidos ·{" "}
-                      {summary.total - summary.resolvido} em aberto ou em
-                      atendimento
-                    </p>
-                    <button onClick={() => openModal({ type: "report" })}>
-                      Ver relatório completo
+                      {focusedTicket ? (
+                        <>
+                          <div className="focus-id">
+                            <span>TI-{focusedTicket.id}</span>
+                            <Badge
+                              type="priority"
+                              value={focusedTicket.priority}
+                            />
+                          </div>
+                          <p className="focus-ticket-title">
+                            {focusedTicket.title}
+                          </p>
+                          <p className="focus-description">
+                            {focusedTicket.description}
+                          </p>
+                          <dl className="focus-meta">
+                            <div>
+                              <dt>Solicitante</dt>
+                              <dd>{focusedTicket.requester}</dd>
+                            </div>
+                            <div>
+                              <dt>Setor</dt>
+                              <dd>{focusedTicket.department}</dd>
+                            </div>
+                            <div>
+                              <dt>Categoria</dt>
+                              <dd>{CATEGORIES[focusedTicket.category]}</dd>
+                            </div>
+                          </dl>
+                          <div className="focus-workflow">
+                            <span className="mini-label">ANDAMENTO</span>
+                            <ol>
+                              {Object.entries(STATUSES).map(
+                                ([key, label], index) => (
+                                  <li
+                                    key={key}
+                                    className={
+                                      key === focusedTicket.status
+                                        ? "current"
+                                        : ""
+                                    }
+                                  >
+                                    <span>{index + 1}</span>
+                                    {label}
+                                  </li>
+                                ),
+                              )}
+                            </ol>
+                          </div>
+                          <button
+                            className="button secondary focus-open"
+                            onClick={() =>
+                              openModal({
+                                type: "detail",
+                                id: focusedTicket.id,
+                              })
+                            }
+                          >
+                            Detalhes e histórico
+                            <Icon name="arrow" size={17} />
+                          </button>
+                          <time
+                            className="focus-updated"
+                            dateTime={focusedTicket.updatedAt}
+                          >
+                            Atualizado em {fullDate(focusedTicket.updatedAt)}
+                          </time>
+                        </>
+                      ) : (
+                        <p className="quiet">
+                          O resumo aparece aqui quando há chamados na fila.
+                        </p>
+                      )}
+                    </section>
+                    <section
+                      className="activity-panel"
+                      aria-labelledby="activity-title"
+                    >
+                      <div className="small-panel-heading">
+                        <h2 id="activity-title">Últimos registros</h2>
+                        <span className="activity-count">
+                          {recentEvents.length}
+                        </span>
+                      </div>
+                      {recentEvents.length ? (
+                        <ol className="activity-list">
+                          {recentEvents.map((e) => (
+                            <li key={e.id}>
+                              <span className="activity-point" />
+                              <div>
+                                <button
+                                  onClick={() =>
+                                    openModal({
+                                      type: "detail",
+                                      id: e.ticket.id,
+                                    })
+                                  }
+                                >
+                                  TI-{e.ticket.id}
+                                  <Icon name="arrowUp" size={12} />
+                                </button>
+                                <p>
+                                  {e.kind === "create"
+                                    ? "Chamado aberto"
+                                    : e.kind === "comment"
+                                      ? "Comentário adicionado"
+                                      : e.kind === "edit"
+                                        ? "Dados atualizados"
+                                        : "Status atualizado"}
+                                </p>
+                                <time dateTime={e.createdAt}>
+                                  {fullDate(e.createdAt)}
+                                </time>
+                              </div>
+                            </li>
+                          ))}
+                        </ol>
+                      ) : (
+                        <p className="quiet">Ainda não há movimentações.</p>
+                      )}
+                    </section>
+                    <button
+                      className="report-shortcut"
+                      onClick={() => openModal({ type: "report" })}
+                    >
+                      <Icon name="chart" size={18} />
+                      <span>Relatório da central</span>
                       <Icon name="arrow" size={17} />
                     </button>
-                  </section>
-                </div>
-              )}
+                  </aside>
+                )}
+              </div>
             </>
           )}
           <footer className="page-footer">
             <span>
-              Chamados TI<span>·</span>Feito para aprender, pensado para
-              resolver.
+              CHAMADOS TI<span>/</span>Wesley Tiago
             </span>
             <a
               href="https://github.com/Wesleyttiago/chamados-ti"
@@ -1121,9 +1170,7 @@ export default function App() {
                   applyTicket(result);
                   setModal({ type: "detail", id: result.id });
                 },
-                modal.ticket
-                  ? "Chamado atualizado."
-                  : "Chamado criado. Agora ele faz parte da sua fila.",
+                modal.ticket ? "Chamado atualizado." : "Chamado criado.",
               )
             }
           />
